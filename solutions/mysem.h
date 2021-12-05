@@ -1,12 +1,12 @@
 /* mysem.h */
-#include<signal.h>
+#include <signal.h>
 #include <time.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 
-#define THREADS 16
+#define THREADS 12
 
 typedef struct mysem{
 	volatile long long int lock; 

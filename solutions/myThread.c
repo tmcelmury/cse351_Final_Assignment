@@ -5,8 +5,9 @@
 /* Enter the names of all team members here:
  * Member 1: Trent McElmury
  * Member 2: Kevin Wertz	*/
-
 #include "myThread.h"
+#include <time.h>
+#include <signal.h>
 
 #define INTERVAL 2000
 #define BOUND 100000 
@@ -50,7 +51,7 @@ int main( void )
 	clocktimer.it_interval.tv_sec = 0;
 	clocktimer.it_interval.tv_usec = INTERVAL;
 	setitimer (ITIMER_REAL, &clocktimer, 0);
-	sigset (SIGALRM, signalHandler);
+	signal (SIGALRM, signalHandler);
 
 	/* You need to set up an execution context for the cleanup
 	 * function to use (I've already created myCleanup for you). 
@@ -60,7 +61,7 @@ int main( void )
 	 * command to map the cleanup function to myCleanup context. */
 
 	// set up your cleanup context here.
-	myMain = getcontext();
+	makecontext(&myCleanup, cleanup());
 
 	/* Next, you need to set up contexts for the user threads that will run
 	 * task1 and task2. We will assign even number threads to task1 and
@@ -74,9 +75,10 @@ int main( void )
 			printf("Creating task1 thread[%d].\n", j);
 #endif
 			// map the corresponding context to task1
-			myStack[j] = getcontext();
-
-			task1(j);
+			myStack[j] = malloc(STACKSIZE);
+			context[j].uc_stack = 
+			makecontext(&context[j], task1(j));
+			
 		}
 		else
 		{
@@ -84,9 +86,8 @@ int main( void )
 			printf("Creating task2 thread[%d].\n", j);
 #endif
 			// map the corresponding context to task2
-			myStack[j] = getcontext();
-
-			task2(j);
+			makecontext(&context[j], task2(j));
+			myStack[j] = malloc(STACKSIZE);
 		}
 		// you may want to keep the status of each thread using the
 		// following array. 1 means ready to execute, 2 means currently 
@@ -106,6 +107,7 @@ int main( void )
 	 * running thread. */
 
 		// start running your threads here.
+		setcontext(&context[0]);
 
 	/* If you reach this point, your threads have all finished. It is
 	 * time to free the stack space created for each thread. */
