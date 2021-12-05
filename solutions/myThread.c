@@ -62,6 +62,7 @@ int main( void )
 
 	// set up your cleanup context here.
 	myCleanup.uc_stack.ss_sp = &myCleanupStack;
+	myCleanup.uc_stack.ss_size = STACKSIZE;
 	makecontext(&myCleanup, cleanup, 0);
 
 	/* Next, you need to set up contexts for the user threads that will run
@@ -71,25 +72,22 @@ int main( void )
 		// set up your context for each thread here (e.g., context[0])
 		// for thread 0. Make sure you pass the current value of j as
 		// the thread id for task1 and task2.
+		myStack[j] = malloc(STACKSIZE);
+		context[j].uc_link = &myCleanup;
+		context[j].uc_stack.ss_sp = myStack[j];
+		context[j].uc_stack.ss_size = STACKSIZE;
 		if (j % 2 == 0){
 #if DEBUG == 1
 			printf("Creating task1 thread[%d].\n", j);
 #endif
 			// map the corresponding context to task1
-			myStack[j] = malloc(STACKSIZE);
-			context[j].uc_link = &myCleanup;
-			context[j].uc_stack.ss_sp = myStack[j];
 			makecontext(&context[j], task1, 1, j);	
 		}
-		else
-		{
+		else {
 #if DEBUG == 1
 			printf("Creating task2 thread[%d].\n", j);
 #endif
-			// map the corresponding context to task2
-			myStack[j] = malloc(STACKSIZE);
-			context[j].uc_link = &myCleanup;
-			context[j].uc_stack.ss_sp = myStack[j];
+			// map the corresponding context to task2`````````````
 			makecontext(&context[j], task2, 1, j);
 		}
 		// you may want to keep the status of each thread using the
@@ -110,7 +108,6 @@ int main( void )
 	 * running thread. */
 
 	// start running your threads here.
-	getcontext(&myMain);
 	setcontext(&context[0]);
 
 	/* If you reach this point, your threads have all finished. It is
@@ -141,12 +138,11 @@ void signalHandler( int signal ) {
 	 * may get segmentation faults. */
 	status[currentThread] = 1;
 	int lastThread = currentThread;
-	if (currentThread == 11) {currentThread = 0;}
-	else {currentThread++;}
 	int i = currentThread;
-	while (status[i] != 1) {
-		i++;
-	}
+	do {
+		if (i >= THREADS - 1) {i = 0;}
+		else {i++;}
+	} while (status[i] != 1);
 	currentThread = i;
 	status[i] = 2;
 	swapcontext(&context[lastThread], &context[currentThread]);
@@ -161,13 +157,9 @@ void cleanup() {
 	 * (totalThreads--) each time a thread finishes. When totalThreads
 	 * is equal to 0, this function can return to the main thread. */
 	status[currentThread] = 0;
-	if (totalThreads < 1) {
-		setcontext(&myMain);
-	}
-	else {
-		totalThreads--;
-	}
-	return; 
+	totalThreads--;
+	if (totalThreads < 1) {setcontext(&myMain);}
+	else {return;} 
 }
 
 void task1( int tid )	// Do not modify
