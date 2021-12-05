@@ -1,13 +1,10 @@
 /* This is the skeleton program for you to use to create your own
  * threading library based on setcontext, makecontext, swapcontext,
- * getcontext routines. This work must be done on CSE or CSCE. 
- */
+ * getcontext routines. This work must be done on CSE or CSCE. */ 
 
 /* Enter the names of all team members here:
- * Member 1:
- * Member 2:
- * Member 3:
- */
+ * Member 1: Trent McElmury
+ * Member 2: Kevin Wertz	*/
 
 #include "myThread.h"
 
@@ -21,17 +18,13 @@
 #define POSIX 1
 #define MYSEM 2
 #define NONE 0
-
 /* This program can operate in three modes:
  * with POSIX semaphore (define MUTEX POSIX) 
  * with your own semaphore (define MUTEX MYSEM)
- * or without any semaphore (don't define MUTEX at all)
- * */
-
+ * or without any semaphore (don't define MUTEX at all)*/
 //#define MUTEX POSIX 
 //#define MUTEX MYSEM 
-#define MUTEX NONE 
-//
+#define MUTEX POSIX 
 #define DEBUG 1
 
 ucontext_t context[THREADS], myCleanup, myMain;
@@ -51,7 +44,7 @@ int main( void )
 	char * myStack[THREADS];
 	char myCleanupStack[STACKSIZE];
 	int j;
-	/* initialize timer to send signal every 200 ms */
+	/* initialize timer to send signal every 2 ms */
 	clocktimer.it_value.tv_sec = 0;
 	clocktimer.it_value.tv_usec = INTERVAL;
 	clocktimer.it_interval.tv_sec = 0;
@@ -64,26 +57,26 @@ int main( void )
 	 * You need to initialize it to include the runtime stack space
 	 * (myCleanupStack), stack size, the context to return to when
 	 * cleanup function finishes. Make sure you use the makecontext
-	 * command to map the cleanup function to myCleanup context.
-	 */
+	 * command to map the cleanup function to myCleanup context. */
 
 	// set up your cleanup context here.
+	myMain = getcontext();
 
 	/* Next, you need to set up contexts for the user threads that will run
 	 * task1 and task2. We will assign even number threads to task1 and
-	 * odd number threads to task2. 
-	 */   
-	for (j = 0; j < THREADS; j++)
-	{
+	 * odd number threads to task2. */
+	for (j = 0; j < THREADS; j++) {
 		// set up your context for each thread here (e.g., context[0])
 		// for thread 0. Make sure you pass the current value of j as
 		// the thread id for task1 and task2.
-		
 		if (j % 2 == 0){
 #if DEBUG == 1
 			printf("Creating task1 thread[%d].\n", j);
 #endif
 			// map the corresponding context to task1
+			myStack[j] = getcontext();
+
+			task1(j);
 		}
 		else
 		{
@@ -91,18 +84,18 @@ int main( void )
 			printf("Creating task2 thread[%d].\n", j);
 #endif
 			// map the corresponding context to task2
-		}
+			myStack[j] = getcontext();
 
+			task2(j);
+		}
 		// you may want to keep the status of each thread using the
 		// following array. 1 means ready to execute, 2 means currently 
 		// executing, 0 means it has finished execution. 
-		
 		status[j] = 1;
 
 		// You can keep track of the number of task1 and task2 threads
 		// using totalThreads.  When totalThreads is equal to 0, all
 		// tasks have finished and you can return to the main thread.
-		
 		totalThreads++; }
 
 #if DEBUG == 1
@@ -110,14 +103,12 @@ int main( void )
 #endif
 	/* You need to switch from the main thread to the first thread. Use the
 	 * global variable currentThread to keep track of the currently
-	 * running thread.
-	 */
+	 * running thread. */
 
 		// start running your threads here.
 
 	/* If you reach this point, your threads have all finished. It is
-	 * time to free the stack space created for each thread.
-	 */
+	 * time to free the stack space created for each thread. */
 	for(j = 0; j < THREADS; j++)
 	{	
 	//		free(myStack[j]);
@@ -132,8 +123,7 @@ int main( void )
 #endif
 }
 
-void signalHandler( int signal )
-{
+void signalHandler( int signal ) {
 	/* This method swiches from one thread to the next when a timer
 	 * signal arrives. It needs to pick the next runnable thread to
 	 * execute and then switch the context from the current thread
@@ -142,8 +132,8 @@ void signalHandler( int signal )
 	 *
 	 * Hint: it should never pick a thread that already completed its
 	 * task so you may need to consult the status array. Otherwise, you
-	 * may get segmentation faults.
-	 */
+	 * may get segmentation faults. */
+	 
 	return;
 }
 
@@ -153,17 +143,15 @@ void cleanup() {
 	 * particular thread is shown as finished and should not be
 	 * scheduled again. You should also decrease the number of threads
 	 * (totalThreads--) each time a thread finishes. When totalThreads
-	 * is equal to 0, this function can return to the main thread.  
-	 */
+	 * is equal to 0, this function can return to the main thread. */
+	totalThreads--;
 	return; 
 }
 
-
-void task1( int tid)
+void task1( int tid )	// Do not modify
 {
 	int i, count = 0;
-	while (count < BOUND)
-	{
+	while (count < BOUND) {
 		for (i = 0; i < DELAY; i++);
 #if MUTEX == POSIX
 		sem_wait(&mutex);
@@ -184,11 +172,10 @@ void task1( int tid)
 	}		
 }
 
-void task2( int tid)
+void task2( int tid )	// Do not modify
 {
 	int i, count = 0; 
-	while (count < BOUND)
-	{
+	while (count < BOUND) {
 		for (i = 0; i < DELAY; i++);
 #if MUTEX == POSIX
 		sem_wait(&mutex);
