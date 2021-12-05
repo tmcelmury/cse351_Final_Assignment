@@ -102,19 +102,26 @@ int main( void )
 
 #if DEBUG == 1
 	printf("Running threads.\n");
+	for (int j = 0; j < THREADS; j++) {	// For debugging purposes
+		printf("Address: %x		Size(B): %i\n", context[j].uc_stack.ss_sp, context[j].uc_stack.ss_size);
+	}
 #endif
 	/* You need to switch from the main thread to the first thread. Use the
-	 * global variable currentThread to keep track of the currently
-	 * running thread. */
+	 * global variable currentThread to keep track of the currently running thread. */
 
 	// start running your threads here.
-	setcontext(&context[0]);
+	currentThread = 0;
+	char* mainStack = malloc(STACKSIZE);
+	myMain.uc_stack.ss_sp = mainStack;
+	myMain.uc_stack.ss_size = STACKSIZE;
+	getcontext(&myMain);
+	swapcontext(&myMain, &context[0]);
 
 	/* If you reach this point, your threads have all finished. It is
 	 * time to free the stack space created for each thread. */
 	for(j = 0; j < THREADS; j++)
 	{	
-		free(context[j].uc_stack.ss_sp);
+		//free(context[j].uc_stack.ss_sp);
 	}
 	printf("==========================\n");
 	printf("sharedCounter = %d\n", sharedCounter);
@@ -138,13 +145,11 @@ void signalHandler( int signal ) {
 	 * may get segmentation faults. */
 	status[currentThread] = 1;
 	int lastThread = currentThread;
-	int i = currentThread;
 	do {
-		if (i >= THREADS - 1) {i = 0;}
-		else {i++;}
-	} while (status[i] != 1);
-	currentThread = i;
-	status[i] = 2;
+		if (currentThread >= THREADS - 1) {currentThread = 0;}
+		else {currentThread++;}
+	} while (status[currentThread] != 1);
+	status[currentThread] = 2;
 	swapcontext(&context[lastThread], &context[currentThread]);
 	return;
 }
