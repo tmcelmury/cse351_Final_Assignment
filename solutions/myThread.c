@@ -61,7 +61,8 @@ int main( void )
 	 * command to map the cleanup function to myCleanup context. */
 
 	// set up your cleanup context here.
-	makecontext(&myCleanup, cleanup());
+	myCleanup.uc_stack.ss_sp = &myCleanupStack;
+	makecontext(&myCleanup, cleanup, 0);
 
 	/* Next, you need to set up contexts for the user threads that will run
 	 * task1 and task2. We will assign even number threads to task1 and
@@ -76,8 +77,8 @@ int main( void )
 #endif
 			// map the corresponding context to task1
 			myStack[j] = malloc(STACKSIZE);
-			context[j].uc_stack = myStack[j];
-			makecontext(&context[j], task1(j));	
+			context[j].uc_stack.ss_sp = myStack[j];
+			makecontext(&context[j], task1, 1, j);	
 		}
 		else
 		{
@@ -86,8 +87,8 @@ int main( void )
 #endif
 			// map the corresponding context to task2
 			myStack[j] = malloc(STACKSIZE);
-			context[j].uc_stack = myStack[j];
-			makecontext(&context[j], task2(j));
+			context[j].uc_stack.ss_sp = myStack[j];
+			makecontext(&context[j], task2, 1, j);
 		}
 		// you may want to keep the status of each thread using the
 		// following array. 1 means ready to execute, 2 means currently 
@@ -113,7 +114,7 @@ int main( void )
 	 * time to free the stack space created for each thread. */
 	for(j = 0; j < THREADS; j++)
 	{	
-	//		free(myStack[j]);
+		free(context[j].uc_stack.ss_sp);
 	}
 	printf("==========================\n");
 	printf("sharedCounter = %d\n", sharedCounter);
@@ -137,10 +138,10 @@ void signalHandler( int signal ) {
 	 * may get segmentation faults. */
 	status[currentThread] = 1;
 	int lastThread = currentThread;
-	if (currentThread == 11) {currentThread=0;}
+	if (currentThread == 11) {currentThread = 0;}
 	else {currentThread++;}
 	int i = currentThread;
-	while (status[i] != 1){
+	while (status[i] != 1) {
 		i++;
 	}
 	currentThread = i;
@@ -156,7 +157,12 @@ void cleanup() {
 	 * scheduled again. You should also decrease the number of threads
 	 * (totalThreads--) each time a thread finishes. When totalThreads
 	 * is equal to 0, this function can return to the main thread. */
-	totalThreads--;
+	if (totalThreads < 1) {
+
+	}
+	else {
+		totalThreads--;
+	}
 	return; 
 }
 
