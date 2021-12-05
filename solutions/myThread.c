@@ -76,9 +76,8 @@ int main( void )
 #endif
 			// map the corresponding context to task1
 			myStack[j] = malloc(STACKSIZE);
-			context[j].uc_stack = 
-			makecontext(&context[j], task1(j));
-			
+			context[j].uc_stack = myStack[j];
+			makecontext(&context[j], task1(j));	
 		}
 		else
 		{
@@ -86,8 +85,9 @@ int main( void )
 			printf("Creating task2 thread[%d].\n", j);
 #endif
 			// map the corresponding context to task2
-			makecontext(&context[j], task2(j));
 			myStack[j] = malloc(STACKSIZE);
+			context[j].uc_stack = myStack[j];
+			makecontext(&context[j], task2(j));
 		}
 		// you may want to keep the status of each thread using the
 		// following array. 1 means ready to execute, 2 means currently 
@@ -135,7 +135,17 @@ void signalHandler( int signal ) {
 	 * Hint: it should never pick a thread that already completed its
 	 * task so you may need to consult the status array. Otherwise, you
 	 * may get segmentation faults. */
-	 
+	status[currentThread] = 1;
+	int lastThread = currentThread;
+	if (currentThread == 11) {currentThread=0;}
+	else {currentThread++;}
+	int i = currentThread;
+	while (status[i] != 1){
+		i++;
+	}
+	currentThread = i;
+	status[i] = 2;
+	swapcontext(&context[lastThread], &context[currentThread]);
 	return;
 }
 
