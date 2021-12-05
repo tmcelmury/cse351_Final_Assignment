@@ -77,6 +77,7 @@ int main( void )
 #endif
 			// map the corresponding context to task1
 			myStack[j] = malloc(STACKSIZE);
+			context[j].uc_link = &myCleanup;
 			context[j].uc_stack.ss_sp = myStack[j];
 			makecontext(&context[j], task1, 1, j);	
 		}
@@ -87,6 +88,7 @@ int main( void )
 #endif
 			// map the corresponding context to task2
 			myStack[j] = malloc(STACKSIZE);
+			context[j].uc_link = &myCleanup;
 			context[j].uc_stack.ss_sp = myStack[j];
 			makecontext(&context[j], task2, 1, j);
 		}
@@ -107,8 +109,9 @@ int main( void )
 	 * global variable currentThread to keep track of the currently
 	 * running thread. */
 
-		// start running your threads here.
-		setcontext(&context[0]);
+	// start running your threads here.
+	getcontext(&myMain);
+	setcontext(&context[0]);
 
 	/* If you reach this point, your threads have all finished. It is
 	 * time to free the stack space created for each thread. */
@@ -157,8 +160,9 @@ void cleanup() {
 	 * scheduled again. You should also decrease the number of threads
 	 * (totalThreads--) each time a thread finishes. When totalThreads
 	 * is equal to 0, this function can return to the main thread. */
+	status[currentThread] = 0;
 	if (totalThreads < 1) {
-
+		setcontext(&myMain);
 	}
 	else {
 		totalThreads--;
