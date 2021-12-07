@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -O1 -w -lpthread
+CFLAGS = -g -Wall -O1 -w -lpthread
 OBJS = myThread.o mysem.o
 
 myThread	: $(OBJS)

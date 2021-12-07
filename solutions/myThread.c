@@ -25,7 +25,7 @@
  * or without any semaphore (don't define MUTEX at all)*/
 //#define MUTEX POSIX 
 //#define MUTEX MYSEM 
-#define MUTEX POSIX 
+#define MUTEX NONE 
 #define DEBUG 1
 
 ucontext_t context[THREADS], myCleanup, myMain;
@@ -42,7 +42,8 @@ mysem_t mutex;
 
 int main( void )
 {
-	char * myStack[THREADS];
+	getcontext(&myMain);
+	char ** myStack[THREADS];
 	char myCleanupStack[STACKSIZE];
 	int j;
 	/* initialize timer to send signal every 2 ms */
@@ -63,12 +64,16 @@ int main( void )
 	// set up your cleanup context here.
 	myCleanup.uc_stack.ss_sp = &myCleanupStack;
 	myCleanup.uc_stack.ss_size = STACKSIZE;
+	myCleanup.uc_link = &myMain;
 	makecontext(&myCleanup, cleanup, 0);
 
 	/* Next, you need to set up contexts for the user threads that will run
 	 * task1 and task2. We will assign even number threads to task1 and
 	 * odd number threads to task2. */
 	for (j = 0; j < THREADS; j++) {
+		if (getcontext(&context[j]) == -1) {
+			printf("Context creation for thread %i failed",j);
+}
 		// set up your context for each thread here (e.g., context[0])
 		// for thread 0. Make sure you pass the current value of j as
 		// the thread id for task1 and task2.
@@ -98,7 +103,8 @@ int main( void )
 		// You can keep track of the number of task1 and task2 threads
 		// using totalThreads.  When totalThreads is equal to 0, all
 		// tasks have finished and you can return to the main thread.
-		totalThreads++; }
+		totalThreads++; 
+	}
 
 #if DEBUG == 1
 	printf("Running threads.\n");
@@ -111,10 +117,10 @@ int main( void )
 
 	// start running your threads here.
 	currentThread = 0;
-	char* mainStack = malloc(STACKSIZE);
-	myMain.uc_stack.ss_sp = mainStack;
-	myMain.uc_stack.ss_size = STACKSIZE;
-	getcontext(&myMain);
+	//char* mainStack = malloc(STACKSIZE);
+	//myMain.uc_stack.ss_sp = mainStack;
+	//myMain.uc_stack.ss_size = STACKSIZE;
+
 	swapcontext(&myMain, &context[0]);
 
 	/* If you reach this point, your threads have all finished. It is
@@ -122,6 +128,7 @@ int main( void )
 	for(j = 0; j < THREADS; j++)
 	{	
 		//free(context[j].uc_stack.ss_sp);
+		free(&myStack[j]);
 	}
 	printf("==========================\n");
 	printf("sharedCounter = %d\n", sharedCounter);
@@ -163,8 +170,8 @@ void cleanup() {
 	 * is equal to 0, this function can return to the main thread. */
 	status[currentThread] = 0;
 	totalThreads--;
-	if (totalThreads < 1) {setcontext(&myMain);}
-	else {return;} 
+	if (totalThreads == 0) //{setcontext(&myMain);}
+	{return;} 
 }
 
 void task1( int tid )	// Do not modify
