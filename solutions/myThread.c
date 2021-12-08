@@ -42,6 +42,9 @@ mysem_t mutex;
 
 int main( void )
 {
+#if MUTEX==POSIX
+	sem_init(&mutex, 0, 1);
+#endif
 	getcontext(&myMain);
 	char ** myStack[THREADS];
 	char myCleanupStack[STACKSIZE];
@@ -54,36 +57,26 @@ int main( void )
 	setitimer (ITIMER_REAL, &clocktimer, 0);
 	signal (SIGALRM, signalHandler);
 
-	/* You need to set up an execution context for the cleanup
-	 * function to use (I've already created myCleanup for you). 
-	 * You need to initialize it to include the runtime stack space
-	 * (myCleanupStack), stack size, the context to return to when
-	 * cleanup function finishes. Make sure you use the makecontext
-	 * command to map the cleanup function to myCleanup context. */
-
-	// set up your cleanup context here.
+	// set up cleanup context 
 	getcontext(&myCleanup);
 	myCleanup.uc_stack.ss_sp = &myCleanupStack;
 	myCleanup.uc_stack.ss_size = STACKSIZE;
 	myCleanup.uc_link = &myMain;
 	makecontext(&myCleanup, cleanup, 0);
 
-	/* Next, you need to set up contexts for the user threads that will run
-	 * task1 and task2. We will assign even number threads to task1 and
-	 * odd number threads to task2. */
+	/* Set up contexts for the user threads that will run task1 and task2.
+	 * Assign even number threads to task1 and odd number threads to task2. 
+	 */
 	for (j = 0; j < THREADS; j++) {
 
-		if (getcontext(&context[j]) == -1) 
-		{
-			printf("Context creation for thread %i failed",j);
-		}
-		// set up your context for each thread here (e.g., context[0])
-		// for thread 0. Make sure you pass the current value of j as
-		// the thread id for task1 and task2.
+		// set up your context for each thread 
+		// Pass the current value of j as the thread id
+		getcontext(&context[j]);
 		myStack[j] = malloc(STACKSIZE);
 		context[j].uc_link = &myCleanup;
 		context[j].uc_stack.ss_sp = myStack[j];
 		context[j].uc_stack.ss_size = STACKSIZE;
+
 		if (j % 2 == 0){
 #if DEBUG == 1
 			printf("Creating task1 thread[%d].\n", j);
@@ -96,14 +89,13 @@ int main( void )
 #endif
 			makecontext(&context[j], task2, 1, j);
 		}
-		// you may want to keep the status of each thread using the
-		// following array. 1 means ready to execute, 2 means currently 
-		// executing, 0 means it has finished execution. 
+		// Status array for each thread, 1 means ready to execute,
+		// 2 means currently executing, 0 means it has finished execution. 
 		status[j] = 1;
 
-		// You can keep track of the number of task1 and task2 threads
-		// using totalThreads.  When totalThreads is equal to 0, all
-		// tasks have finished and you can return to the main thread.
+		// Keep track of the number of task1 and task2 threads
+		// When totalThreads is equal to 0, all tasks have finished, 
+		// return to the main thread.
 		totalThreads++; 
 	}
 
@@ -121,17 +113,23 @@ int main( void )
 
 	swapcontext(&myMain, &context[0]);
 
-	/* If you reach this point, your threads have all finished. It is
-	 * time to free the stack space created for each thread. */
+	/* At this point, threads have all finished. 
+	   free the malloc'd stack space for each thread */
+
 	for(j = 0; j < THREADS; j++)
 	{	
-		//free(context[j].uc_stack.ss_sp);
 		free(myStack[j]);
 	}
 	printf("==========================\n");
 	printf("sharedCounter = %d\n", sharedCounter);
 	printf("==========================\n");
 	printf("Total Threads left: %d\n",totalThreads);
+	printf("Status of threads at finish: ");
+	for(int i=0;i<THREADS;i++)
+	{
+		printf(" %i,",status[i]);
+	}
+	printf("\n");
 #if DEBUG == 1
 	printf("Program terminates successfully.\n");
 	printf("Note that it is OK for the execution orders\n");
@@ -140,24 +138,46 @@ int main( void )
 }
 
 void signalHandler( int signal ) {
-	/* This method swiches from one thread to the next when a timer
+	/* This method switches from one thread to the next when a timer
 	 * signal arrives. It needs to pick the next runnable thread to
 	 * execute and then switch the context from the current thread
-	 * (indicated by currentThread) to the next thread (already created
-	 * as an integer variable for you. 
+	 * (indicated by currentThread) to the next thread 
 	 *
 	 * Hint: it should never pick a thread that already completed its
 	 * task so you may need to consult the status array. Otherwise, you
 	 * may get segmentation faults. */
-	status[currentThread] = 1;
+	if(status[currentThread]==2)  //only if thread was running set to waiting to run	
+	{										
+		status[currentThread] = 1;
+	}
 	int lastThread = currentThread;
-	do {
-		if (currentThread >= THREADS - 1) {currentThread = 0;}
-		else {currentThread++;}
-	} while (status[currentThread] == 2 || status[currentThread]==0 ); //looking for threads with status of 1
-	status[currentThread] = 2;
-	swapcontext(&context[lastThread], &context[currentThread]);
-	return;
+	int j=0;
+	for(int i=currentThread;j<THREADS;j++)		//Go through all threads to find one with a context of 1
+	{											// once found, break from loop and swap to it
+		if(currentThread>=THREADS - 1)			// If none found, do not swap contexts
+		{
+			currentThread=0;
+		}
+		else
+		{
+			currentThread++;
+		}
+		if(status[currentThread]==1)
+		{
+			break;
+		}
+	}
+
+	if(j>=THREADS)	//If this is the case all thread states were examined and none were in the waiting to run state
+	{				//Do not schedule a new thread as the cleanup is currently being run
+		return;
+	}
+	else			//The next thread that could be run was found, swap to its context
+	{
+		status[currentThread]=2;
+		swapcontext(&context[lastThread], &context[currentThread]);
+		return;
+	}
 }
 
 void cleanup() {
@@ -167,11 +187,10 @@ void cleanup() {
 	 * scheduled again. You should also decrease the number of threads
 	 * (totalThreads--) each time a thread finishes. When totalThreads
 	 * is equal to 0, this function can return to the main thread. */
-	printf("Cleaning up thread %d\n",currentThread);
-	status[currentThread] = 0;
 	totalThreads--;
-	while (totalThreads != 0){}; //{setcontext(&myMain);}
-	return; 
+	status[currentThread] = 0;
+	while (totalThreads != 0){}; //Wait until quantum is over, or if last executing thread, return to mainContext and finish program
+	return; 					 //cleanup returns to mainContext
 }
 
 void task1( int tid )	// Do not modify
