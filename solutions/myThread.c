@@ -62,6 +62,7 @@ int main( void )
 	 * command to map the cleanup function to myCleanup context. */
 
 	// set up your cleanup context here.
+	getcontext(&myCleanup);
 	myCleanup.uc_stack.ss_sp = &myCleanupStack;
 	myCleanup.uc_stack.ss_size = STACKSIZE;
 	myCleanup.uc_link = &myMain;
@@ -71,9 +72,11 @@ int main( void )
 	 * task1 and task2. We will assign even number threads to task1 and
 	 * odd number threads to task2. */
 	for (j = 0; j < THREADS; j++) {
-		if (getcontext(&context[j]) == -1) {
+
+		if (getcontext(&context[j]) == -1) 
+		{
 			printf("Context creation for thread %i failed",j);
-}
+		}
 		// set up your context for each thread here (e.g., context[0])
 		// for thread 0. Make sure you pass the current value of j as
 		// the thread id for task1 and task2.
@@ -85,14 +88,12 @@ int main( void )
 #if DEBUG == 1
 			printf("Creating task1 thread[%d].\n", j);
 #endif
-			// map the corresponding context to task1
 			makecontext(&context[j], task1, 1, j);	
 		}
 		else {
 #if DEBUG == 1
 			printf("Creating task2 thread[%d].\n", j);
 #endif
-			// map the corresponding context to task2`````````````
 			makecontext(&context[j], task2, 1, j);
 		}
 		// you may want to keep the status of each thread using the
@@ -117,9 +118,6 @@ int main( void )
 
 	// start running your threads here.
 	currentThread = 0;
-	//char* mainStack = malloc(STACKSIZE);
-	//myMain.uc_stack.ss_sp = mainStack;
-	//myMain.uc_stack.ss_size = STACKSIZE;
 
 	swapcontext(&myMain, &context[0]);
 
@@ -128,11 +126,12 @@ int main( void )
 	for(j = 0; j < THREADS; j++)
 	{	
 		//free(context[j].uc_stack.ss_sp);
-		free(&myStack[j]);
+		free(myStack[j]);
 	}
 	printf("==========================\n");
 	printf("sharedCounter = %d\n", sharedCounter);
 	printf("==========================\n");
+	printf("Total Threads left: %d\n",totalThreads);
 #if DEBUG == 1
 	printf("Program terminates successfully.\n");
 	printf("Note that it is OK for the execution orders\n");
@@ -155,7 +154,7 @@ void signalHandler( int signal ) {
 	do {
 		if (currentThread >= THREADS - 1) {currentThread = 0;}
 		else {currentThread++;}
-	} while (status[currentThread] != 1);
+	} while (status[currentThread] == 2 || status[currentThread]==0 ); //looking for threads with status of 1
 	status[currentThread] = 2;
 	swapcontext(&context[lastThread], &context[currentThread]);
 	return;
@@ -168,10 +167,11 @@ void cleanup() {
 	 * scheduled again. You should also decrease the number of threads
 	 * (totalThreads--) each time a thread finishes. When totalThreads
 	 * is equal to 0, this function can return to the main thread. */
+	printf("Cleaning up thread %d\n",currentThread);
 	status[currentThread] = 0;
 	totalThreads--;
-	if (totalThreads == 0) //{setcontext(&myMain);}
-	{return;} 
+	while (totalThreads != 0){}; //{setcontext(&myMain);}
+	return; 
 }
 
 void task1( int tid )	// Do not modify
